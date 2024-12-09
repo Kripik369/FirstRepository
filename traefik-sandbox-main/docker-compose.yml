@@ -1,0 +1,62 @@
+version: '3'
+
+services:
+  traefik:
+    image: git.newsmedia.ru:5050/ops/registry/registry/traefik:2.11.3
+    restart: always
+    command:
+
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      #- "--experimental.localplugins.extractcookie=true"
+      #- --experimental.localPlugins.extractcookie.moduleName=nm/extractcookie
+
+    
+    ports:
+      - 80:80
+      - 443:443
+      - 10001:10001
+    networks:
+      - web
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock'
+      - /etc/localtime:/etc/localtime:ro
+      - ./traefik/traefik.toml:/traefik.toml:ro
+      - ./traefik/traefik_dynamic.toml:/traefik_dynamic.toml:ro 
+      - /home/gitlab-runner/acme.json:/acme.json
+      - ./plugins-local/:/plugins-local/
+      #- /home/gitlab-runner/logs:/logs/
+ 
+    container_name: traefik
+  nginx:
+    container_name: nginx
+    image: git.newsmedia.ru:5050/ops/registry/registry/nginx:alpine
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    #  - /home/gitlab-runner/logs/nginx:/var/log/nginx
+    #  - ./nginx:/etc/nginx/conf.d:ro
+      - ./nginx/www:/usr/share/nginx/html
+
+    networks:
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nginx.rule=Host(`ym.corr.life`)"
+      - "traefik.http.routers.nginx.service=nginx"
+      - "traefik.http.routers.nginx.tls=true"
+      - "traefik.http.routers.nginx.entrypoints=web"
+      - "traefik.http.routers.nginx.tls.certresolver=lets-encrypt"
+      - "traefik.http.services.nginx.loadbalancer.server.port=80"
+      - "traefik.http.routers.extractCookieRouter.rule=Host(`ym.corr.life`)"
+      - "traefik.http.routers.extractCookieRouter.service=nginx"
+      - "traefik.http.routers.extractCookieRouter.entrypoints=web,websecure"
+      - "traefik.http.middlewares.extractCookieMiddleware.plugin.extractcookie.cookieName=_ym_uid"
+      - "traefik.http.middlewares.extractCookieMiddleware.plugin.extractcookie.headerNameForCookieValue=Authorization"
+      - "traefik.http.middlewares.extractCookieMiddleware.plugin.extractcookie.cookieValuePrefix=Bearer" 
+      - "traefik.http.middlewares.extractCookieMiddleware.plugin.extractcookie.logLevel=debug"
+      - "traefik.http.routers.extractCookieRouter.middlewares=extractCookieMiddleware"
+
+networks:
+  web:
+    external: true
