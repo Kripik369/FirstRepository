@@ -1,36 +1,82 @@
 ---
 - name: Install Clickhouse
-  hosts: clickhouse
+  hosts: clickhouse-01
   handlers:
     - name: Start clickhouse service
       become: true
-      ansible.builtin.service:
+      ansible.builtin.systemd:
         name: clickhouse-server
         state: restarted
   tasks:
-    - block:
+    - name: Errors
+      block:
         - name: Get clickhouse distrib
           ansible.builtin.get_url:
-            url: "https://packages.clickhouse.com/rpm/stable/{{ item }}-{{ clickhouse_version }}.noarch.rpm"
-            dest: "./{{ item }}-{{ clickhouse_version }}.rpm"
+            url: "https://packages.clickhouse.com/rpm/stable/{{ item }}-{{ clickhouse_version }}.x86_64.rpm"
+            dest: "./{{ item }}-{{ clickhouse_version }}.x86_64.rpm"
+            mode: "0644"
           with_items: "{{ clickhouse_packages }}"
       rescue:
         - name: Get clickhouse distrib
           ansible.builtin.get_url:
             url: "https://packages.clickhouse.com/rpm/stable/clickhouse-common-static-{{ clickhouse_version }}.x86_64.rpm"
-            dest: "./clickhouse-common-static-{{ clickhouse_version }}.rpm"
+            dest: "./clickhouse-common-static-{{ clickhouse_version }}.x86_64.rpm"
+            mode: "0644"
     - name: Install clickhouse packages
       become: true
       ansible.builtin.yum:
         name:
-          - clickhouse-common-static-{{ clickhouse_version }}.rpm
-          - clickhouse-client-{{ clickhouse_version }}.rpm
-          - clickhouse-server-{{ clickhouse_version }}.rpm
+          - clickhouse-common-static-{{ clickhouse_version }}.x86_64.rpm
+          - clickhouse-client-{{ clickhouse_version }}.x86_64.rpm
+          - clickhouse-server-{{ clickhouse_version }}.x86_64.rpm
       notify: Start clickhouse service
     - name: Flush handlers
-      meta: flush_handlers
+      ansible.builtin.meta: flush_handlers
     - name: Create database
       ansible.builtin.command: "clickhouse-client -q 'create database logs;'"
       register: create_db
       failed_when: create_db.rc != 0 and create_db.rc !=82
       changed_when: create_db.rc == 0
+    - name: Установить Vector бинарник напрямую
+      become: true
+      ansible.builtin.get_url:
+       url: https://github.com/vectordotdev/vector/releases/download/v0.50.0/vector-0.50.0-x86_64-unknown-linux-gnu.tar.gz
+       dest: /usr/local/bin/vector.tar.gz
+       mode: '0644'
+
+    - name: Распаковать Vector
+      become: true
+      ansible.builtin.unarchive:
+        src: /usr/local/bin/vector.tar.gz
+        dest: /usr/local
+        remote_src: yes
+        creates: /opt/vector-0.50.0/bin/vector
+    - name: Создать systemd сервис
+      become: true
+      ansible.builtin.copy:
+       content: |
+        [Unit]
+        Description=Vector
+        After=network.target
+
+        [Service]
+        ExecStart=/usr/local/vector-0.50.0/bin/vector
+        Restart=always
+
+        [Install]
+        WantedBy=multi-user.target
+       dest: /etc/systemd/system/vector.service
+
+    - name: Симлинк на реальный vector
+      ansible.builtin.file:
+       src: /usr/local/bin/vector-x86_64-unknown-linux-gnu/bin/vector
+       dest: /usr/local/bin/vector
+       state: link
+       mode: '0755'
+    - name: Запустить Vector
+      become: true
+      ansible.builtin.systemd:
+       name: vector
+       enabled: yes
+       state: started
+

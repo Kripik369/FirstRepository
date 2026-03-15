@@ -1,6 +1,9 @@
 ---
-clickhouse_version: "22.3.3.44"
+clickhouse_version: "25.8.8.26"
 clickhouse_packages:
   - clickhouse-client
   - clickhouse-server
   - clickhouse-common-static
+vector_version: "0.44.0-1"
+vector_packages:
+  - vector
