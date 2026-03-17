@@ -1,3 +1,14 @@
+<img width="1919" height="1106" alt="image" src="https://github.com/user-attachments/assets/71e97c3b-9ebe-496b-bdba-33ebbedb9ff6" />
+лайтхаус
+
+<img width="1912" height="1002" alt="image" src="https://github.com/user-attachments/assets/8b0dc442-f800-438d-881f-ed48307521ce" 
+
+  выполнен плейбук
+
+
+
+
+
 # Домашнее задание к занятию 2 «Работа с Playbook»
 
 ## Подготовка к выполнению
