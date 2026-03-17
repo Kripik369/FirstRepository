@@ -1,5 +1,5 @@
 ---
-clickhouse_version: "25.8.8.26"
+clickhouse_version: "25.10.6.36"
 clickhouse_packages:
   - clickhouse-client
   - clickhouse-server
@@ -7,3 +7,8 @@ clickhouse_packages:
 vector_version: "0.44.0-1"
 vector_packages:
   - vector
+docker_image: "nginx"
+docker_tag: "latest"
+ca_path: ""
+timeout: 120
+lighthouse_version: "11.8.0"

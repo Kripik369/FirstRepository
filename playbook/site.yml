@@ -12,8 +12,8 @@
       block:
         - name: Get clickhouse distrib
           ansible.builtin.get_url:
-            url: "https://packages.clickhouse.com/rpm/stable/{{ item }}-{{ clickhouse_version }}.x86_64.rpm"
-            dest: "./{{ item }}-{{ clickhouse_version }}.x86_64.rpm"
+            url: "https://packages.clickhouse.com/deb/pool/main/c/clickhouse/{{ item }}_{{ clickhouse_version }}_amd64.deb"
+            dest: "/home/svil/{{ item }}_{{ clickhouse_version }}_amd64.deb"
             mode: "0644"
           with_items: "{{ clickhouse_packages }}"
       rescue:
@@ -24,11 +24,12 @@
             mode: "0644"
     - name: Install clickhouse packages
       become: true
-      ansible.builtin.yum:
-        name:
-          - clickhouse-common-static-{{ clickhouse_version }}.x86_64.rpm
-          - clickhouse-client-{{ clickhouse_version }}.x86_64.rpm
-          - clickhouse-server-{{ clickhouse_version }}.x86_64.rpm
+      ansible.builtin.apt:
+        deb: "/home/svil/{{ item }}_{{ clickhouse_version }}_amd64.deb"
+      loop:
+        - clickhouse-common-static
+        - clickhouse-client
+        - clickhouse-server
       notify: Start clickhouse service
     - name: Flush handlers
       ansible.builtin.meta: flush_handlers
@@ -67,16 +68,52 @@
         WantedBy=multi-user.target
        dest: /etc/systemd/system/vector.service
 
-    - name: Симлинк на реальный vector
-      ansible.builtin.file:
-       src: /usr/local/bin/vector-x86_64-unknown-linux-gnu/bin/vector
-       dest: /usr/local/bin/vector
-       state: link
-       mode: '0755'
     - name: Запустить Vector
       become: true
       ansible.builtin.systemd:
        name: vector
        enabled: yes
        state: started
+    - name: Install nginx
+      become: true
+      ansible.builtin.apt:
+       name: nginx
+       state: present
+       allow_downgrade: yes
+    - name: Create a directory
+      become: true
+      ansible.builtin.file:
+       path: /home/svil/git
+       state: directory
+       mode: '0755'
+    - name: Clone a repo
+      become: true 
+      ansible.builtin.git:
+        repo: 'https://github.com/VKCOM/lighthouse.git'
+        dest: /home/svil/git
+    - name: config
+      become: true
+      ansible.builtin.template:
+        src: default
+        dest: /etc/nginx/sites-available/default
+        mode: '0644'
+    - name: chmod 755 /home/svil
+      file:
+       path: /home/svil
+       mode: '0755'
 
+    - name: chmod 755 /home/svil/git
+      file:
+       path: /home/svil/git
+       mode: '0755'
+
+    - name: chmod 644 /home/svil/git/index.html
+      file:
+       path: /home/svil/git/index.html
+       mode: '0644'
+
+    - name: restart nginx
+      become: true
+      systemd:
+        name: nginx
+        state: restarted
