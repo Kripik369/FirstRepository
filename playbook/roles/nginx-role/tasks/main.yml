@@ -1,0 +1,8 @@
+---
+# tasks file for nginx-role
+    - name: Install nginx
+      become: true
+      ansible.builtin.apt:
+       name: nginx
+       state: present
+       allow_downgrade: yes
